@@ -33,20 +33,36 @@ std::string titleCase(const std::string& inString) {
 
 int main(void) {
   int sfd = socket(AF_INET, SOCK_STREAM, 0);
-  struct sockaddr_in serveAddr;
   if (sfd == -1) {
     fatalError("Failed to create socket", -1);
   }
 
-  serveAddr.sin_family = AF_INET;
-  serveAddr.sin_addr.s_addr = INADDR_ANY;
-  serveAddr.sin_port = 0; // Next available
+  struct sockaddr_in sin;
+  socklen_t len = sizeof(sin);
+  sin.sin_family = AF_INET;
+  sin.sin_addr.s_addr = INADDR_ANY;
+  sin.sin_port = 0; // Next available
 
-  if (bind(sfd, (struct sockaddr*) (&serveAddr), sizeof(serveAddr)) == -1) {
+  if (bind(sfd, (struct sockaddr*) (&sin), len) == -1) {
     fatalError("Failed to bind socket", -2);
   }
 
+  // Listen with max 5 pending connections
+  if (listen(sfd, 5) == -1) {
+    fatalError("Failed to listen on socket", -3);
+  }
+
+  // Get port number
+  if (getsockname(sfd, (struct sockaddr*) (&sin), &len) == -1) {
+    fatalError("Could not get socket name", -4);
+  }
+
+  std::cerr << "Listening on port " << ntohs(sin.sin_port) << std::endl;
+
+  fd_set readSet;
+  FD_ZERO(&readSet);
   while(1) {
-    
+    select(0, &readSet, nullptr, nullptr, nullptr);
+    //if (FD_ISSET(
   }
 }
