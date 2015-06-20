@@ -4,11 +4,13 @@
 #include <iostream>
 #include <cstdlib>
 #include <sstream>
+#include <vector>
 
 #include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 namespace {
 
@@ -32,10 +34,14 @@ std::string titleCase(const std::string& inString) {
 }
 
 int main(void) {
-  int sfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (sfd == -1) {
+  int mainSocket = socket(AF_INET, SOCK_STREAM, 0);
+  if (mainSocket == -1) {
     fatalError("Failed to create socket", -1);
   }
+
+  char hostnameBuffer[1024];
+  gethostname(hostnameBuffer, sizeof(hostnameBuffer));
+  hostnameBuffer[sizeof(hostnameBuffer) - 1] = '\0';
 
   struct sockaddr_in sin;
   socklen_t len = sizeof(sin);
@@ -43,26 +49,76 @@ int main(void) {
   sin.sin_addr.s_addr = INADDR_ANY;
   sin.sin_port = 0; // Next available
 
-  if (bind(sfd, (struct sockaddr*) (&sin), len) == -1) {
+  if (bind(mainSocket, (struct sockaddr*) (&sin), len) == -1) {
     fatalError("Failed to bind socket", -2);
   }
 
   // Listen with max 5 pending connections
-  if (listen(sfd, 5) == -1) {
+  if (listen(mainSocket, 5) == -1) {
     fatalError("Failed to listen on socket", -3);
   }
 
   // Get port number
-  if (getsockname(sfd, (struct sockaddr*) (&sin), &len) == -1) {
+  if (getsockname(mainSocket, (struct sockaddr*) (&sin), &len) == -1) {
     fatalError("Could not get socket name", -4);
   }
 
   std::cerr << "Listening on port " << ntohs(sin.sin_port) << std::endl;
 
+  std::vector<int> clientSockets;
   fd_set readSet;
-  FD_ZERO(&readSet);
-  while(1) {
-    select(0, &readSet, nullptr, nullptr, nullptr);
-    //if (FD_ISSET(
+  char buffer[1025];
+
+  while(true) {
+    FD_ZERO(&readSet);
+    FD_SET(mainSocket, &readSet);
+
+    int maxFd = mainSocket;
+
+    for (auto clientSocket : clientSockets) {
+      FD_SET(clientSocket, &readSet);
+      maxFd = std::max(maxFd, clientSocket);
+    }
+
+    if (select(0, &readSet, nullptr, nullptr, nullptr) < 0) {
+      fatalError("Error from select", -5);
+    }
+
+    if (FD_ISSET(mainSocket, &readSet)) {
+      // Activity on the main socket means that there is a new client
+      auto newSocket = accept(mainSocket, (struct sockaddr*)&sin, &len);
+      if (newSocket < 0) {
+        // Error
+        std::cerr << "Error accepting new socket" << std::endl;
+      }
+      clientSockets.push_back(newSocket);
+    }
+
+    // Check clients for activity too
+    auto i = clientSockets.begin();
+    while (i != clientSockets.end()) {
+      auto clientSocket = *i;
+      if (!FD_ISSET(clientSocket, &readSet)) {
+        i += 1;
+        continue;
+      }
+
+      // TODO: Read 4 bytes then try to read more.
+      // TODO: Read as much as possible. Not just 1024. Read in a lewp.
+      auto bytesRead = read(clientSocket, buffer, sizeof(buffer) - 1);
+      if (bytesRead == 0) {
+        // Error or EOF
+        i = clientSockets.erase(i);
+        close(clientSocket);
+      }
+      else {
+        i += 1;
+        // TODO: Data is in buffer. Put into stringstream for this client
+        //send(clientSocket, buffer, strlen(buffer), 0);
+      }
+
+
+    }
+
   }
 }
