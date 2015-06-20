@@ -42,6 +42,7 @@ int main(void) {
   char hostnameBuffer[1024];
   gethostname(hostnameBuffer, sizeof(hostnameBuffer));
   hostnameBuffer[sizeof(hostnameBuffer) - 1] = '\0';
+  std::cout << "SERVER_ADDRESS " << hostnameBuffer << std::endl;
 
   struct sockaddr_in sin;
   socklen_t len = sizeof(sin);
@@ -63,7 +64,7 @@ int main(void) {
     fatalError("Could not get socket name", -4);
   }
 
-  std::cerr << "Listening on port " << ntohs(sin.sin_port) << std::endl;
+  std::cerr << "SERVER_PORT " << ntohs(sin.sin_port) << std::endl;
 
   std::vector<int> clientSockets;
   fd_set readSet;

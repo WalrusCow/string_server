@@ -11,22 +11,22 @@ CPPFLAGS=-std=c++1y -pedantic -Wall -Wextra -Wcast-align -Wcast-qual \
 SERVER_SRCS=server.cpp
 SERVER_OBJS=$(subst .cpp,.o,$(SERVER_SRCS))
 
-#CLIENT_SRCS=client.cpp
-#CLIENT_OBJS=$(subst .cpp,.o,$(CLIENT_SRCS))
+CLIENT_SRCS=client.cpp
+CLIENT_OBJS=$(subst .cpp,.o,$(CLIENT_SRCS))
 
 OBJS=$(SERVER_OBJS) $(CLIENT_OBJS)
 
-all: server
+all: server client
 
 server: server.o
 	$(CXX) -o stringServer $(SERVER_OBJS)
 
-#client: client.o
-#	$(CXX) -o client
+client: client.o
+	$(CXX) -o stringClient $(CLIENT_OBJS)
 
 server.o: server.cpp server.hpp
 
-#client.o: client.cpp client.hpp
+client.o: client.cpp client.hpp
 
 clean:
 	$(RM) $(OBJS)
