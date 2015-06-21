@@ -113,14 +113,14 @@ int Connection::doRead(
 }
 
 int Connection::read(std::string& result) {
-  return doRead(result, [&] (int socket, char* buffer, size_t toRead) {
-    return ::read(socket, buffer, toRead);
+  return doRead(result, [&] (int sfd, char* buffer, size_t toRead) {
+    return ::read(sfd, buffer, toRead);
   });
 }
 
 int Connection::recv(std::string& result) {
-  return doRead(result, [&] (int socket, char* buffer, size_t toRead) {
-      return ::recv(socket, buffer, toRead, 0);
+  return doRead(result, [&] (int sfd, char* buffer, size_t toRead) {
+      return ::recv(sfd, buffer, toRead, 0);
   });
 }
 
