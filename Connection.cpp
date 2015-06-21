@@ -57,6 +57,11 @@ int Connection::doRead(
   if (messageLength == 0) {
     // We have to read the messagelength
     bytesReceived = reader(socket, buffer, 4);
+    if (bytesReceived == 0) {
+      std::cerr << "read nothing" << std::endl;
+      // Not done
+      return 0;
+    }
     if (bytesReceived < 4) {
       // Bad. Should handle this better, probably
       std::cerr << "Could not read message length " <<bytesReceived<< std::endl;

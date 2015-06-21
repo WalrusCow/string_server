@@ -22,6 +22,8 @@ class Client {
   void sendStrings(ThreadQueue& stringQueue,
                    const std::atomic_bool& inputDone);
 
+  void connect();
+
   struct hostent* server;
   struct sockaddr_in addr;
   int sfd;

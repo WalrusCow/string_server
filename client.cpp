@@ -8,10 +8,6 @@
 #include "Connection.hpp"
 
 Client::Client(const std::string& hostname, int port) {
-  sfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (sfd < 0) {
-    std::cerr << "Error opening socket" << std::endl;
-  }
   server = gethostbyname(hostname.c_str());
   addr.sin_family = AF_INET;
 
@@ -19,10 +15,6 @@ Client::Client(const std::string& hostname, int port) {
         (char*)&addr.sin_addr.s_addr,
         (int)server->h_length);
   addr.sin_port = htons(port);
-
-  if (connect(sfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-    std::cerr << "Error connecting to server" << std::endl;
-  }
 }
 
 void Client::sendFrom(std::istream& is) {
@@ -73,6 +65,7 @@ void Client::sendStrings(ThreadQueue& stringQueue,
 }
 
 void Client::sendString(const std::string& str) {
+  connect();
   // Four bits
   uint32_t len = str.size() + 1;
   char buf[1024];
@@ -93,13 +86,25 @@ void Client::sendString(const std::string& str) {
   //auto buf2 = std::unique_ptr<char>(new char[messageSize]);
   Connection c(sfd);
   std::string reply;
-  c.recv(reply);
   // haha
+  c.recv(reply);
   std::cout << "Server: " << reply << std::endl;
   //recv(sfd, buf2.get(), messageSize, 0);
 
   //std::string message(buf2.get() + sizeof(len));
   //std::cout << "Got response from server:" << message << std::endl;
+  close(sfd);
+}
+
+void Client::connect() {
+  sfd = socket(AF_INET, SOCK_STREAM, 0);
+  if (sfd < 0) {
+    std::cerr << "Error opening socket" << std::endl;
+  }
+
+  if (::connect(sfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
+    std::cerr << "Error connecting to server" << std::endl;
+  }
 }
 
 int main(void) {
