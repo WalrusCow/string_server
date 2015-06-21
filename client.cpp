@@ -66,32 +66,12 @@ void Client::sendStrings(ThreadQueue& stringQueue,
 
 void Client::sendString(const std::string& str) {
   connect();
-  // Four bits
-  uint32_t len = str.size() + 1;
-  char buf[1024];
-  std::memcpy(buf, &len, sizeof(len));
+  connection.send(str);
 
-  // Include null terminator
-  auto messageSize = str.size() + 1 + sizeof(len);
-  std::memcpy(buf + 4, str.c_str(), str.size()+1);
-  auto n = write(sfd, buf, messageSize);
-  if (n < 0) {
-    // Error
-    std::cerr << "Error when writing to socket" << std::endl;
-  }
-  std::cout << "Wrote " << n << "bytes"<<std::endl;
-  // Write in loop.. may not be able to write all
-
-  // Wait for response
-  //auto buf2 = std::unique_ptr<char>(new char[messageSize]);
   std::string reply;
-  // haha
   connection.recv(reply);
   std::cout << "Server: " << reply << std::endl;
-  //recv(sfd, buf2.get(), messageSize, 0);
 
-  //std::string message(buf2.get() + sizeof(len));
-  //std::cout << "Got response from server:" << message << std::endl;
   connection.close();
 }
 

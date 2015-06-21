@@ -16,9 +16,9 @@ void Connection::close() {
   ::close(socket);
 }
 
-int Connection::send(const std::string& reply) {
-  std::cerr << "Sending : " << reply << std::endl;
-  uint32_t length = reply.size() + 1;
+int Connection::send(const std::string& str) {
+  std::cerr << "Sending : " << str << std::endl;
+  uint32_t length = str.size() + 1;
   const uint32_t BUFFER_LEN = 1024;
   char buffer[BUFFER_LEN];
   std::memcpy(buffer, &length, sizeof(length));
@@ -29,7 +29,7 @@ int Connection::send(const std::string& reply) {
     return -1;
   }
 
-  const char* cStr = reply.c_str();
+  const char* cStr = str.c_str();
 
   uint32_t toWrite = length;
   while (toWrite > 0) {
