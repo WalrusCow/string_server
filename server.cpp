@@ -1,14 +1,10 @@
 #include "server.hpp"
 
 #include <algorithm>
-#include <cctype>
 #include <iostream>
-#include <list>
 #include <cstdlib>
-#include <cstring>
 #include <sstream>
 
-#include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -37,8 +33,9 @@ std::string titleCase(const std::string& inString) {
   return ss.str();
 }
 
-int main(void) {
-  int mainSocket = socket(AF_INET, SOCK_STREAM, 0);
+void Server::connect() {
+  // Connect to port
+  mainSocket = socket(AF_INET, SOCK_STREAM, 0);
   if (mainSocket == -1) {
     fatalError("Failed to create socket", -1);
   }
@@ -48,14 +45,12 @@ int main(void) {
   hostnameBuffer[sizeof(hostnameBuffer) - 1] = '\0';
   std::cout << "SERVER_ADDRESS " << hostnameBuffer << std::endl;
 
-  struct sockaddr_in sin;
-  socklen_t len = sizeof(sin);
   sin.sin_family = AF_INET;
   sin.sin_addr.s_addr = INADDR_ANY;
   sin.sin_port = 0; // Next available
   sin.sin_port = 12818;
 
-  if (bind(mainSocket, (struct sockaddr*) (&sin), len) == -1) {
+  if (bind(mainSocket, (struct sockaddr*) (&sin), sinLen) == -1) {
     fatalError("Failed to bind socket", -2);
   }
 
@@ -65,77 +60,85 @@ int main(void) {
   }
 
   // Get port number
-  if (getsockname(mainSocket, (struct sockaddr*) (&sin), &len) == -1) {
+  if (getsockname(mainSocket, (struct sockaddr*) (&sin), &sinLen) == -1) {
     fatalError("Could not get socket name", -4);
   }
 
   std::cout << "SERVER_PORT " << ntohs(sin.sin_port) << std::endl;
+}
 
-  std::list<Connection> connections;
-  fd_set readSet;
-  char buffer[1025];
+void Server::waitForActivity() {
+  FD_ZERO(&readSet);
+  FD_SET(mainSocket, &readSet);
 
-  while(true) {
-    FD_ZERO(&readSet);
-    FD_SET(mainSocket, &readSet);
+  int maxFd = mainSocket;
 
-    int maxFd = mainSocket;
-
-    for (const auto& connection : connections) {
-      FD_SET(connection.socket, &readSet);
-      maxFd = std::max(maxFd, connection.socket);
-    }
-
-    if (select(maxFd + 1, &readSet, nullptr, nullptr, nullptr) < 0) {
-      fatalError("Error from select", -5);
-    }
-    std::cout << "Past select" << std::endl;
-
-    if (FD_ISSET(mainSocket, &readSet)) {
-      // Activity on the main socket means that there is a new client
-      auto newSocket = accept(mainSocket, (struct sockaddr*)&sin, &len);
-      std::cout << "New connection" << std::endl;
-      if (newSocket < 0) {
-        // Error
-        std::cerr << "Error accepting new socket" << std::endl;
-      }
-      std::cerr << "Adding new socket " << newSocket << std::endl;
-      connections.emplace_back(newSocket);
-    }
-
-    // Check clients for activity too
-    auto i = connections.begin();
-    while (i != connections.end()) {
-      auto& connection = *i;
-      if (!FD_ISSET(connection.socket, &readSet)) {
-        i++;
-        continue;
-      }
-
-      std::string receivedMessage;
-      int finished = connection.read(receivedMessage);
-      if (finished < 0) {
-        // error
-        std::cerr << "Error on reading" << std::endl;
-        connection.close();
-        i = connections.erase(i);
-        continue;
-      }
-      if (!finished) {
-        i++;
-        continue;
-      }
-
-      std::cerr << "Server got " << receivedMessage << std::endl;
-      std::string reply = titleCase(receivedMessage);
-      std::cerr << "Server will reply with " << reply << std::endl;
-      connection.send(reply);
-      std::cerr << "Removing socket " << connection.socket << std::endl;
-
-      connection.close();
-
-      // Done reading. Remove from queue
-      i = connections.erase(i);
-    }
+  for (const auto& connection : connections) {
+    FD_SET(connection.socket, &readSet);
+    maxFd = std::max(maxFd, connection.socket);
   }
+
+  if (select(maxFd + 1, &readSet, nullptr, nullptr, nullptr) < 0) {
+    fatalError("Error from select", -5);
+  }
+}
+
+void Server::checkForNewConnections() {
+  if (!FD_ISSET(mainSocket, &readSet)) {
+    return;
+  }
+
+  // Activity on the main socket means that there is a new client
+  auto newSocket = accept(mainSocket, (struct sockaddr*)&sin, &sinLen);
+  if (newSocket < 0) {
+    // Error
+    std::cerr << "Error accepting new socket" << std::endl;
+  }
+  connections.emplace_back(newSocket);
+}
+
+void Server::handleConnections() {
+  // Check clients for activity too
+  auto i = connections.begin();
+  while (i != connections.end()) {
+    auto& connection = *i;
+    if (!FD_ISSET(connection.socket, &readSet)) {
+      i++;
+      continue;
+    }
+
+    std::string receivedMessage;
+    int finished = connection.read(receivedMessage);
+    if (finished < 0) {
+      std::cerr << "Error on reading" << std::endl;
+      connection.close();
+      i = connections.erase(i);
+      continue;
+    }
+    if (!finished) {
+      i++;
+      continue;
+    }
+
+    std::string reply = titleCase(receivedMessage);
+    connection.send(reply);
+    connection.close();
+
+    // Done reading. Remove from queue
+    i = connections.erase(i);
+  }
+}
+
+void Server::run() {
+  while(true) {
+    waitForActivity();
+    checkForNewConnections();
+    handleConnections();
+  }
+}
+
+int main(void) {
+  Server server;
+  server.connect();
+  server.run();
 }
