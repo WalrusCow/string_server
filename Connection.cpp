@@ -48,7 +48,9 @@ int Connection::send(const std::string& reply) {
   return 0;
 }
 
-int Connection::read(std::string& result) {
+int Connection::doRead(
+    std::string& result,
+    const std::function<ssize_t(int, char*, size_t)>& reader) {
   if (!valid) {
     std::cerr << "Attempting to read from invalid connection" << std::endl;
     return -1;
@@ -60,7 +62,7 @@ int Connection::read(std::string& result) {
   ssize_t bytesReceived;
   if (messageLength == 0) {
     // We have to read the messagelength
-    bytesReceived = ::read(socket, buffer, 4);
+    bytesReceived = reader(socket, buffer, 4);
     if (bytesReceived < 4) {
       // Bad. Should handle this better, probably
       std::cerr << "Could not read message length " <<bytesReceived<< std::endl;
@@ -75,7 +77,7 @@ int Connection::read(std::string& result) {
     toRead = messageLength - bytesRead;
     // Read as much as we can
     bytesToLoad = std::min(BUFFER_LEN, toRead);
-    bytesReceived = ::read(socket, buffer, bytesToLoad);
+    bytesReceived = reader(socket, buffer, bytesToLoad);
     toRead -= bytesReceived;
     ss.read(buffer, bytesReceived);
     std::cout << "server Reading..." << std::endl;
@@ -91,4 +93,16 @@ int Connection::read(std::string& result) {
   std::cout << "sever not done reading" <<std::endl;
   // Not done
   return 0;
+}
+
+int Connection::read(std::string& result) {
+  return doRead(result, [&] (int socket, char* buffer, size_t toRead) {
+    return ::read(socket, buffer, toRead);
+  });
+}
+
+int Connection::recv(std::string& result) {
+  return doRead(result, [&] (int socket, char* buffer, size_t toRead) {
+      return ::recv(socket, buffer, toRead, 0);
+  });
 }
