@@ -8,14 +8,12 @@
 #include <unistd.h>
 
 void Connection::close() {
-  if (!valid) {
-    std::cerr << "Attempting to close closed connection" << std::endl;
-  }
+  std::cerr << "BEING CLOSED " << socket <<std::endl;
   ::close(socket);
-  valid = false;
 }
 
 int Connection::send(const std::string& reply) {
+  std::cerr << "Sending : " << reply << std::endl;
   uint32_t length = reply.size() + 1;
   const uint32_t BUFFER_LEN = 1024;
   char buffer[BUFFER_LEN];
@@ -31,7 +29,6 @@ int Connection::send(const std::string& reply) {
 
   uint32_t toWrite = length;
   while (toWrite > 0) {
-    std::cerr << "writing some stuff" << std::endl;
     // While we have not written everything yet
     // Copy remaining into buffer
     auto toCopy = std::min(BUFFER_LEN, toWrite);
@@ -45,16 +42,13 @@ int Connection::send(const std::string& reply) {
     cStr += bytesWritten;
     toWrite -= bytesWritten;
   }
+  std::cerr << "Done sending" << std::endl;
   return 0;
 }
 
 int Connection::doRead(
     std::string& result,
     const std::function<ssize_t(int, char*, size_t)>& reader) {
-  if (!valid) {
-    std::cerr << "Attempting to read from invalid connection" << std::endl;
-    return -1;
-  }
 
   const uint32_t BUFFER_LEN = 1024;
   char buffer[BUFFER_LEN];
@@ -69,6 +63,8 @@ int Connection::doRead(
       // Error
       return -1;
     }
+    std::memcpy(&messageLength, buffer, 4);
+    std::cerr << "Got the message length " << messageLength << std::endl;
   }
 
   uint32_t toRead;
@@ -78,19 +74,31 @@ int Connection::doRead(
     // Read as much as we can
     bytesToLoad = std::min(BUFFER_LEN, toRead);
     bytesReceived = reader(socket, buffer, bytesToLoad);
+    if (bytesReceived < 0) {
+      std::cerr << "Error when reading" << std::endl;
+      return -1;
+    }
+    std::cerr << "Read " << bytesReceived<<" bytes" << std::endl;
+    std::cerr << "Data: ";
+    for (int i=0;i<bytesReceived;++i) {
+      std::cerr << (int)buffer[i]<<' ';
+    }
+    std::cerr<<std::endl;
+    bytesRead += bytesReceived;
     toRead -= bytesReceived;
-    ss.read(buffer, bytesReceived);
-    std::cout << "server Reading..." << std::endl;
+    // Add to string buffer
+    ss.write(buffer, bytesReceived);
+    std::cout << "Connection Reading..." << std::endl;
   } while (bytesReceived > 0 && toRead > 0);
 
   // We have read the whole message
   if (toRead <= 0) {
-    std::cout << "server Done reading" <<std::endl;
     result = ss.str();
+    std::cout << "connection Done reading " <<result<<std::endl;
     // Done
     return 1;
   }
-  std::cout << "sever not done reading" <<std::endl;
+  std::cout << "connection not done reading" <<std::endl;
   // Not done
   return 0;
 }

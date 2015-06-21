@@ -21,7 +21,6 @@ class Connection {
   std::stringstream ss;
   uint32_t messageLength = 0;
   uint32_t bytesRead = 0;
-  bool valid = true;
 
   int doRead(std::string& result,
              const std::function<ssize_t(int, char*, size_t)>& reader);

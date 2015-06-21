@@ -5,6 +5,8 @@
 
 #include <unistd.h>
 
+#include "Connection.hpp"
+
 Client::Client(const std::string& hostname, int port) {
   sfd = socket(AF_INET, SOCK_STREAM, 0);
   if (sfd < 0) {
@@ -78,6 +80,7 @@ void Client::sendString(const std::string& str) {
 
   // Include null terminator
   auto messageSize = str.size() + 1 + sizeof(len);
+  std::memcpy(buf + 4, str.c_str(), str.size()+1);
   auto n = write(sfd, buf, messageSize);
   if (n < 0) {
     // Error
@@ -87,11 +90,16 @@ void Client::sendString(const std::string& str) {
   // Write in loop.. may not be able to write all
 
   // Wait for response
-  auto buf2 = std::unique_ptr<char>(new char[messageSize]);
-  recv(sfd, buf2.get(), messageSize, 0);
+  //auto buf2 = std::unique_ptr<char>(new char[messageSize]);
+  Connection c(sfd);
+  std::string reply;
+  c.recv(reply);
+  // haha
+  std::cout << "Server: " << reply << std::endl;
+  //recv(sfd, buf2.get(), messageSize, 0);
 
-  std::string message(buf2.get() + sizeof(len));
-  std::cout << "Got response from server:" << message << std::endl;
+  //std::string message(buf2.get() + sizeof(len));
+  //std::cout << "Got response from server:" << message << std::endl;
 }
 
 int main(void) {

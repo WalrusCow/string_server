@@ -98,6 +98,7 @@ int main(void) {
         // Error
         std::cerr << "Error accepting new socket" << std::endl;
       }
+      std::cerr << "Adding new socket " << newSocket << std::endl;
       connections.emplace_back(newSocket);
     }
 
@@ -114,6 +115,7 @@ int main(void) {
       int finished = connection.read(receivedMessage);
       if (finished < 0) {
         // error
+        std::cerr << "Error on reading" << std::endl;
         connection.close();
         i = connections.erase(i);
         continue;
@@ -123,11 +125,16 @@ int main(void) {
         continue;
       }
 
+      std::cerr << "Server got " << receivedMessage << std::endl;
+      std::string reply = titleCase(receivedMessage);
+      std::cerr << "Server will reply with " << reply << std::endl;
+      connection.send(reply);
+      std::cerr << "Removing socket " << connection.socket << std::endl;
+
+      connection.close();
+
       // Done reading. Remove from queue
       i = connections.erase(i);
-      std::string reply = titleCase(receivedMessage);
-      connection.send(reply);
-      connection.close();
     }
   }
 }
