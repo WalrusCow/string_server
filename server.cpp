@@ -48,7 +48,6 @@ void Server::connect() {
   sin.sin_family = AF_INET;
   sin.sin_addr.s_addr = INADDR_ANY;
   sin.sin_port = 0; // Next available
-  sin.sin_port = 12818;
 
   if (bind(mainSocket, (struct sockaddr*) (&sin), sinLen) == -1) {
     fatalError("Failed to bind socket", -2);
