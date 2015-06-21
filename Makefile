@@ -8,23 +8,26 @@ CPPFLAGS=-std=c++1y -lpthread -pedantic -Wall -Wextra -Wcast-align -Wcast-qual \
 -Wsign-promo -Wstrict-null-sentinel -Wstrict-overflow=5 \
 -Wswitch-default -Wundef -Werror -Wno-unused
 
-SERVER_SRCS=server.cpp
+SERVER_SRCS=server.cpp Connection.cpp
 SERVER_OBJS=$(subst .cpp,.o,$(SERVER_SRCS))
 
-CLIENT_SRCS=client.cpp ThreadQueue.cpp
+CLIENT_SRCS=client.cpp ThreadQueue.cpp Connection.cpp
 CLIENT_OBJS=$(subst .cpp,.o,$(CLIENT_SRCS))
 
 OBJS=$(SERVER_OBJS) $(CLIENT_OBJS)
 
 all: server client
 
-server: server.o
+server: server.o Connection.o
 	$(CXX) -o stringServer $(SERVER_OBJS) -lpthread
 
-client: client.o ThreadQueue.o
+client: client.o ThreadQueue.o Connection.o
 	$(CXX) -o stringClient $(CLIENT_OBJS) -lpthread
 
+
 ThreadQueue.o: ThreadQueue.cpp ThreadQueue.hpp
+
+Connection.o: Connection.cpp Connection.hpp
 
 server.o: server.cpp server.hpp
 
