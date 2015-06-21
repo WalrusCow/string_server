@@ -7,6 +7,15 @@
 
 #include "ThreadQueue.hpp"
 
+namespace {
+
+void fatalError(const std::string& error, int exitCode) {
+  std::cerr << error << std::endl;
+  std::exit(exitCode);
+}
+
+} // Anonymous
+
 Client::Client(const std::string& hostname, int port) {
   server = gethostbyname(hostname.c_str());
   addr.sin_family = AF_INET;
@@ -89,8 +98,14 @@ void Client::connect() {
 }
 
 int main(void) {
-  std::string hostname = getenv("SERVER_ADDRESS");
-  int port = std::stoi(getenv("SERVER_PORT"));
-  Client client(hostname, port);
+  char* hostname = getenv("SERVER_ADDRESS");
+  if (!hostname) {
+    fatalError("Could not read SERVER_ADDRESS environment variable!", -1);
+  }
+  char* port = getenv("SERVER_PORT");
+  if (!port) {
+    fatalError("Could not read SERVER_PORT environment variable!", -1);
+  }
+  Client client(hostname, std::stoi(port));
   client.sendFrom(std::cin);
 }
