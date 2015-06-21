@@ -1,11 +1,15 @@
 #include "Connection.hpp"
 
 #include <algorithm>
-#include <sys/socket.h>
-#include <iostream>
 #include <cstring>
+#include <iostream>
 
+#include <sys/socket.h>
 #include <unistd.h>
+
+Connection::Connection() : Connection(0) {}
+
+Connection::Connection(int socket_) : socket(socket_) {}
 
 void Connection::close() {
   std::cerr << "BEING CLOSED " << socket <<std::endl;
@@ -118,4 +122,12 @@ int Connection::recv(std::string& result) {
   return doRead(result, [&] (int socket, char* buffer, size_t toRead) {
       return ::recv(socket, buffer, toRead, 0);
   });
+}
+
+void Connection::useSocket(int socket_) {
+  socket = socket_;
+  ss.str("");
+  ss.clear();
+  messageLength = 0;
+  bytesRead = 0;
 }

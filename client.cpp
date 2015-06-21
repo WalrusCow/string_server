@@ -5,7 +5,7 @@
 
 #include <unistd.h>
 
-#include "Connection.hpp"
+#include "ThreadQueue.hpp"
 
 Client::Client(const std::string& hostname, int port) {
   server = gethostbyname(hostname.c_str());
@@ -84,16 +84,15 @@ void Client::sendString(const std::string& str) {
 
   // Wait for response
   //auto buf2 = std::unique_ptr<char>(new char[messageSize]);
-  Connection c(sfd);
   std::string reply;
   // haha
-  c.recv(reply);
+  connection.recv(reply);
   std::cout << "Server: " << reply << std::endl;
   //recv(sfd, buf2.get(), messageSize, 0);
 
   //std::string message(buf2.get() + sizeof(len));
   //std::cout << "Got response from server:" << message << std::endl;
-  close(sfd);
+  connection.close();
 }
 
 void Client::connect() {
@@ -105,6 +104,8 @@ void Client::connect() {
   if (::connect(sfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
     std::cerr << "Error connecting to server" << std::endl;
   }
+
+  connection.useSocket(sfd);
 }
 
 int main(void) {

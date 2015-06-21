@@ -9,7 +9,9 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-#include "ThreadQueue.hpp"
+#include "Connection.hpp"
+
+class ThreadQueue;
 
 class Client {
  public:
@@ -27,4 +29,5 @@ class Client {
   struct hostent* server;
   struct sockaddr_in addr;
   int sfd;
+  Connection connection;
 };

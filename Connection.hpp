@@ -6,14 +6,16 @@
 
 class Connection {
  public:
-  Connection() : socket(0) {}
-  Connection(int socket_) : socket(socket_) {}
+  Connection();
+  Connection(int socket_);
   // Return negative on error; positive on done; 0 on not done
   int read(std::string& result);
   int recv(std::string& result);
   // Return negative on error; 0 on success. Blocks.
   int send(const std::string& reply);
   void close();
+
+  void useSocket(int socket_);
 
   int socket;
 

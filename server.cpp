@@ -53,7 +53,7 @@ int main(void) {
   sin.sin_family = AF_INET;
   sin.sin_addr.s_addr = INADDR_ANY;
   sin.sin_port = 0; // Next available
-  sin.sin_port = 56789;
+  sin.sin_port = 12818;
 
   if (bind(mainSocket, (struct sockaddr*) (&sin), len) == -1) {
     fatalError("Failed to bind socket", -2);
@@ -69,7 +69,7 @@ int main(void) {
     fatalError("Could not get socket name", -4);
   }
 
-  std::cerr << "SERVER_PORT " << ntohs(sin.sin_port) << std::endl;
+  std::cout << "SERVER_PORT " << ntohs(sin.sin_port) << std::endl;
 
   std::list<Connection> connections;
   fd_set readSet;
