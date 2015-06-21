@@ -3,6 +3,7 @@
 #include <cctype>
 #include <iostream>
 #include <cstdlib>
+#include <cstring>
 #include <sstream>
 #include <vector>
 
@@ -81,13 +82,15 @@ int main(void) {
       maxFd = std::max(maxFd, clientSocket);
     }
 
-    if (select(0, &readSet, nullptr, nullptr, nullptr) < 0) {
+    if (select(maxFd + 1, &readSet, nullptr, nullptr, nullptr) < 0) {
       fatalError("Error from select", -5);
     }
+    std::cout << "Past select" << std::endl;
 
     if (FD_ISSET(mainSocket, &readSet)) {
       // Activity on the main socket means that there is a new client
       auto newSocket = accept(mainSocket, (struct sockaddr*)&sin, &len);
+      std::cout << "New connection" << std::endl;
       if (newSocket < 0) {
         // Error
         std::cerr << "Error accepting new socket" << std::endl;
@@ -113,8 +116,14 @@ int main(void) {
         close(clientSocket);
       }
       else {
+        buffer[sizeof(buffer) - 1] = '\0';
         i += 1;
         // TODO: Data is in buffer. Put into stringstream for this client
+        uint32_t strLen;
+        std::memcpy(&strLen, buffer, sizeof(strLen));
+        std::cout << "string length " << strLen << std::endl;
+        std::cout << "got " << bytesRead << " bytes: " <<buffer+4<<std::endl;
+        send(clientSocket, "hello", 6, 0);
         //send(clientSocket, buffer, strlen(buffer), 0);
       }
 
