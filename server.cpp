@@ -1,11 +1,12 @@
 #include "server.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <iostream>
+#include <list>
 #include <cstdlib>
 #include <cstring>
 #include <sstream>
-#include <vector>
 
 #include <netinet/in.h>
 #include <sys/select.h>
@@ -21,6 +22,92 @@ void fatalError(const std::string& error, int exitCode) {
 }
 
 } // Anonymous
+
+void Connection::close() {
+  if (!valid) {
+    std::cerr << "Attempting to close closed connection" << std::endl;
+  }
+  ::close(socket);
+  valid = false;
+}
+
+int Connection::send(const std::string& reply) {
+  uint32_t length = reply.size() + 1;
+  const uint32_t BUFFER_LEN = 1024;
+  char buffer[BUFFER_LEN];
+  std::memcpy(buffer, &length, sizeof(length));
+  auto bytesWritten = write(socket, buffer, sizeof(length));
+  if (bytesWritten < 4) {
+    // Could not write length
+    std::cerr << "Could not write length " <<bytesWritten << std::endl;
+    return -1;
+  }
+
+  const char* cStr = reply.c_str();
+
+  uint32_t toWrite = length;
+  while (toWrite > 0) {
+    std::cerr << "writing some stuff" << std::endl;
+    // While we have not written everything yet
+    // Copy remaining into buffer
+    auto toCopy = std::min(BUFFER_LEN, toWrite);
+    std::memcpy(buffer, cStr, toCopy);
+    bytesWritten = write(socket, buffer, toCopy);
+    if (bytesWritten < 0) {
+      // Error
+      return -1;
+    }
+    // We have written some bytes
+    cStr += bytesWritten;
+    toWrite -= bytesWritten;
+  }
+  return 0;
+}
+
+int Connection::read(std::string& result) {
+  if (!valid) {
+    std::cerr << "Attempting to read from invalid connection" << std::endl;
+    return -1;
+  }
+
+  const uint32_t BUFFER_LEN = 1024;
+  char buffer[BUFFER_LEN];
+
+  ssize_t bytesReceived;
+  if (messageLength == 0) {
+    // We have to read the messagelength
+    bytesReceived = ::read(socket, buffer, 4);
+    if (bytesReceived < 4) {
+      // Bad. Should handle this better, probably
+      std::cerr << "Could not read message length " <<bytesReceived<< std::endl;
+      // Error
+      return -1;
+    }
+  }
+
+  uint32_t toRead;
+  uint32_t bytesToLoad;
+  do {
+    toRead = messageLength - bytesRead;
+    // Read as much as we can
+    bytesToLoad = std::min(BUFFER_LEN, toRead);
+    bytesReceived = ::read(socket, buffer, bytesToLoad);
+    toRead -= bytesReceived;
+    ss.read(buffer, bytesReceived);
+    std::cout << "server Reading..." << std::endl;
+  } while (bytesReceived > 0 && toRead > 0);
+
+  // We have read the whole message
+  if (toRead <= 0) {
+    std::cout << "server Done reading" <<std::endl;
+    result = ss.str();
+    // Done
+    return 1;
+  }
+  std::cout << "sever not done reading" <<std::endl;
+  // Not done
+  return 0;
+}
 
 std::string titleCase(const std::string& inString) {
   bool toUpper = true;
@@ -67,7 +154,7 @@ int main(void) {
 
   std::cerr << "SERVER_PORT " << ntohs(sin.sin_port) << std::endl;
 
-  std::vector<int> clientSockets;
+  std::list<Connection> connections;
   fd_set readSet;
   char buffer[1025];
 
@@ -77,9 +164,9 @@ int main(void) {
 
     int maxFd = mainSocket;
 
-    for (auto clientSocket : clientSockets) {
-      FD_SET(clientSocket, &readSet);
-      maxFd = std::max(maxFd, clientSocket);
+    for (const auto& connection : connections) {
+      FD_SET(connection.socket, &readSet);
+      maxFd = std::max(maxFd, connection.socket);
     }
 
     if (select(maxFd + 1, &readSet, nullptr, nullptr, nullptr) < 0) {
@@ -95,40 +182,36 @@ int main(void) {
         // Error
         std::cerr << "Error accepting new socket" << std::endl;
       }
-      clientSockets.push_back(newSocket);
+      connections.emplace_back(newSocket);
     }
 
     // Check clients for activity too
-    auto i = clientSockets.begin();
-    while (i != clientSockets.end()) {
-      auto clientSocket = *i;
-      if (!FD_ISSET(clientSocket, &readSet)) {
-        i += 1;
+    auto i = connections.begin();
+    while (i != connections.end()) {
+      auto& connection = *i;
+      if (!FD_ISSET(connection.socket, &readSet)) {
+        i++;
         continue;
       }
 
-      // TODO: Read 4 bytes then try to read more.
-      // TODO: Read as much as possible. Not just 1024. Read in a lewp.
-      auto bytesRead = read(clientSocket, buffer, sizeof(buffer) - 1);
-      if (bytesRead == 0) {
-        // Error or EOF
-        i = clientSockets.erase(i);
-        close(clientSocket);
+      std::string receivedMessage;
+      int finished = connection.read(receivedMessage);
+      if (finished < 0) {
+        // error
+        connection.close();
+        i = connections.erase(i);
+        continue;
       }
-      else {
-        buffer[sizeof(buffer) - 1] = '\0';
-        i += 1;
-        // TODO: Data is in buffer. Put into stringstream for this client
-        uint32_t strLen;
-        std::memcpy(&strLen, buffer, sizeof(strLen));
-        std::cout << "string length " << strLen << std::endl;
-        std::cout << "got " << bytesRead << " bytes: " <<buffer+4<<std::endl;
-        send(clientSocket, "hello", 6, 0);
-        //send(clientSocket, buffer, strlen(buffer), 0);
+      if (!finished) {
+        i++;
+        continue;
       }
 
-
+      // Done reading. Remove from queue
+      i = connections.erase(i);
+      std::string reply = titleCase(receivedMessage);
+      connection.send(reply);
+      connection.close();
     }
-
   }
 }
